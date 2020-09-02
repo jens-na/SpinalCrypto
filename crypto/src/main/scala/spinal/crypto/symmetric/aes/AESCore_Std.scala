@@ -283,9 +283,8 @@ class AESEngine_Std(keyWidth: BitCount, hidingEnabled: Boolean) extends Componen
       BigInt("1000111001110001010101000000001001100101011010011100011111110010", 2)
     )
     val cntByte = Counter(16) arbitraryOrderDoubleBuffer(hidingEnabled) withSeed(seeds(0), seeds(1))
-    val c = cntByte.asInstanceOf[HidingCounterDoubleBuffer]
-    sm.byteSub_cmd.ready := cntByte.willOverflowIfInc
 
+    sm.byteSub_cmd.ready := cntByte.willOverflowIfInc
     when(sm.byteSub_cmd.valid) {
       cntByte.increment()
 
