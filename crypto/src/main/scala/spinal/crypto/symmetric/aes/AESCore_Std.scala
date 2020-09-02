@@ -278,11 +278,13 @@ class AESEngine_Std(keyWidth: BitCount, hidingEnabled: Boolean) extends Componen
   val byteSubstitution = new Area {
     import spinal.lib.sidechannel.CounterExtensions._
 
-    val seeds = List(
-      BigInt("1100001001011010110101010011110111001111011110000011101001100000", 2),
-      BigInt("1000111001110001010101000000001001100101011010011100011111110010", 2)
-    )
-    val cntByte = Counter(16) arbitraryOrderDoubleBuffer(hidingEnabled) withSeed(seeds(0), seeds(1))
+    val seeds = Vec(Bits(64 bits), 2)
+    seeds(0) := B("1100001001011010110101010011110111001111011110000011101001100000")
+    seeds(1) := B("1000111001110001010101000000001001100101011010011100011111110010")
+
+    val cntByte = Counter(16) arbitraryOrderDoubleBuffer(hidingEnabled)
+    cntByte.asInstanceOf[HidingCounterDoubleBuffer].c1.Shuffle.seed := seeds(0)
+    cntByte.asInstanceOf[HidingCounterDoubleBuffer].c2.Shuffle.seed := seeds(1)
 
     sm.byteSub_cmd.ready := cntByte.willOverflowIfInc
     when(sm.byteSub_cmd.valid) {
