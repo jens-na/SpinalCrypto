@@ -42,9 +42,10 @@ object SymmetricCryptoBlockIOSim {
     */
   def initializeIO(dut: SymmetricCryptoBlockIO): Unit ={
     dut.cmd.valid #= false
-    dut.cmd.block.randomize()
-    dut.cmd.key.randomize()
-    if(dut.config.useEncDec) dut.cmd.enc.randomize()
+//    dut.cmd.block.randomize()
+//    dut.cmd.key.randomize()
+//    if(dut.config.useEncDec)
+//      dut.cmd.enc.randomize()
   }
 
 
@@ -53,7 +54,7 @@ object SymmetricCryptoBlockIOSim {
     */
   def doSim(dut: SymmetricCryptoBlockIO, clockDomain: ClockDomain, enc: Boolean, blockIn: BigInt = null, keyIn: BigInt = null)(refCrypto: (BigInt, BigInt, Boolean) => BigInt ): Unit ={
 
-    // Generate random input
+//     Generate random input
     val block_in = if(blockIn == null) BigInt(dut.cmd.block.getWidth, Random) else blockIn
     val key      = if(keyIn == null)   BigInt(dut.cmd.key.getWidth, Random)   else keyIn
 

@@ -40,7 +40,7 @@ import spinal.crypto._
   * This design works in encrypt and decrypt and use a key of 128, 192 or 256-bit.
   *
   */
-class AESCore_Std(keyWidth: BitCount) extends Component {
+class AESCore_Std(keyWidth: BitCount, hidingEnabled: Boolean = false) extends Component {
 
   val gIO  = SymmetricCryptoBlockConfig(
     keyWidth   = keyWidth,
@@ -50,7 +50,7 @@ class AESCore_Std(keyWidth: BitCount) extends Component {
 
   val io = slave(SymmetricCryptoBlockIO(gIO))
 
-  val engine      = new AESEngine_Std(keyWidth)
+  val engine      = new AESEngine_Std(keyWidth, hidingEnabled)
   val keySchedule = new AESKeyScheduleCore_Std(keyWidth)
 
   engine.io.engine      <> io
@@ -95,7 +95,7 @@ class AESCore_Std(keyWidth: BitCount) extends Component {
   *               Plaintext
   *
   */
-class AESEngine_Std(keyWidth: BitCount) extends Component {
+class AESEngine_Std(keyWidth: BitCount, hidingEnabled: Boolean) extends Component {
 
   assert(List(128, 192, 256).contains(keyWidth.value), "AES support only 128/192/256 keys width")
 
@@ -276,17 +276,25 @@ class AESEngine_Std(keyWidth: BitCount) extends Component {
     * newState(i) = SBox(currentState(i))
     */
   val byteSubstitution = new Area {
+    import spinal.lib.sidechannel.CounterExtensions._
 
-    val cntByte = Counter(16)
+    val seeds = List(
+      BigInt("1100001001011010110101010011110111001111011110000011101001100000", 2),
+      BigInt("1000111001110001010101000000001001100101011010011100011111110010", 2)
+    )
+    val cntByte = Counter(16) arbitraryOrderDoubleBuffer(hidingEnabled) withSeed(seeds(0), seeds(1))
+    val c = cntByte.asInstanceOf[HidingCounterDoubleBuffer]
     sm.byteSub_cmd.ready := cntByte.willOverflowIfInc
 
     when(sm.byteSub_cmd.valid) {
       cntByte.increment()
 
-      when(io.engine.cmd.enc){
-        dataState(cntByte) := sBoxMem(dataState(cntByte).asUInt)
-      }otherwise{
-        dataState(cntByte) := sBoxMemInv(dataState(cntByte).asUInt)
+      when(cntByte.willIncrement) {
+        when(io.engine.cmd.enc){
+          dataState(cntByte) := sBoxMem(dataState(cntByte).asUInt)
+        }otherwise{
+          dataState(cntByte) := sBoxMemInv(dataState(cntByte).asUInt)
+        }
       }
     }.otherwise{
       cntByte.clear()

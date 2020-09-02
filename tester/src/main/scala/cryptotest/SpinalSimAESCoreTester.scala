@@ -110,18 +110,29 @@ class SpinalSimAESCoreTester extends FunSuite {
     */
   test("AESCoreStd_128"){
 
-    SimConfig.withConfig(SpinalConfig(inlineRom = true)).compile(new AESCore_Std(128 bits)).doSim{ dut =>
+    SimConfig.withWave.withConfig(SpinalConfig(inlineRom = true)).compile(new AESCore_Std(128 bits)).doSim{ dut =>
 
       dut.clockDomain.forkStimulus(2)
 
+
+      for(_ <- 0 to 50) {
+        dut.clockDomain.waitActiveEdge()
+      }
+
       // initialize value
       SymmetricCryptoBlockIOSim.initializeIO(dut.io)
+      dut.io.cmd.block #= BigInt("000102030405060708090a0b0c0d0e0f", 16)
+      dut.io.cmd.key #= BigInt("9d7b8175f0fec5b20ac020e64c708406", 16)
+      dut.io.cmd.enc #= true
 
       dut.clockDomain.waitActiveEdge()
 
       for(_ <- 0 to NBR_ITERATION){
 
-        SymmetricCryptoBlockIOSim.doSim(dut.io, dut.clockDomain, enc = Random.nextBoolean() )(AES.block(128, verbose = false))
+        SymmetricCryptoBlockIOSim.doSim(dut.io, dut.clockDomain,
+          blockIn = dut.io.cmd.block.toBigInt,
+          keyIn = dut.io.cmd.key.toBigInt,
+          enc = true)(AES.block(128, verbose = false))
       }
 
       // Release the valid signal at the end of the simulation
@@ -131,7 +142,34 @@ class SpinalSimAESCoreTester extends FunSuite {
     }
   }
 
+  test("AESCoreStd_128_Hiding"){
 
+    SimConfig.withWave.withConfig(SpinalConfig(inlineRom = true)).compile(new AESCore_Std(128 bits, true)).doSim{ dut =>
+      dut.clockDomain.forkStimulus(2)
+
+
+      // initialize value
+      SymmetricCryptoBlockIOSim.initializeIO(dut.io)
+      dut.io.cmd.block #= BigInt("000102030405060708090a0b0c0d0e0f", 16)
+      dut.io.cmd.key #= BigInt("9d7b8175f0fec5b20ac020e64c708406", 16)
+      dut.io.cmd.enc #= true
+
+      dut.clockDomain.waitActiveEdge()
+
+      for(_ <- 0 to NBR_ITERATION){
+
+        SymmetricCryptoBlockIOSim.doSim(dut.io, dut.clockDomain,
+          blockIn = dut.io.cmd.block.toBigInt,
+          keyIn = dut.io.cmd.key.toBigInt,
+          enc = true)(AES.block(128, verbose = false))
+      }
+
+      // Release the valid signal at the end of the simulation
+      dut.io.cmd.valid #= false
+
+      dut.clockDomain.waitActiveEdge()
+    }
+  }
 
   /**
     * Test - AESCore_Std (192-bit)
