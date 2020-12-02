@@ -283,9 +283,10 @@ class AESEngine_Std(keyWidth: BitCount, hidingEnabled: Boolean) extends Componen
     seeds(1) := B("1000111001110001010101000000001001100101011010011100011111110010")
 
     val cntByte = Counter(16) arbitraryOrderDoubleBuffer(hidingEnabled)
-    cntByte.asInstanceOf[HidingCounterDoubleBuffer].c1.Shuffle.seed := seeds(0)
-    cntByte.asInstanceOf[HidingCounterDoubleBuffer].c2.Shuffle.seed := seeds(1)
-
+    if(hidingEnabled) {
+      cntByte.asInstanceOf[HidingCounterDoubleBuffer].c1.Shuffle.seed := seeds(0)
+      cntByte.asInstanceOf[HidingCounterDoubleBuffer].c2.Shuffle.seed := seeds(1)
+    }
     sm.byteSub_cmd.ready := cntByte.willOverflowIfInc
     when(sm.byteSub_cmd.valid) {
       cntByte.increment()
