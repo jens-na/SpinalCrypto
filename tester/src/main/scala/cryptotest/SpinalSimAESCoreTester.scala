@@ -155,9 +155,10 @@ class SpinalSimAESCoreTester extends FunSuite {
       dut.io.cmd.enc #= true
 
       dut.clockDomain.waitActiveEdge()
-
+      for(_ <- 0 to 16){
+        dut.clockDomain.waitActiveEdge()
+      }
       for(_ <- 0 to NBR_ITERATION){
-
         SymmetricCryptoBlockIOSim.doSim(dut.io, dut.clockDomain,
           blockIn = dut.io.cmd.block.toBigInt,
           keyIn = dut.io.cmd.key.toBigInt,

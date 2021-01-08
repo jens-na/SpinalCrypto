@@ -21,7 +21,7 @@ lazy val crypto = (project in file("crypto"))
 
     libraryDependencies += "com.github.spinalhdl" % "spinalhdl-core_2.11" % CryptoVersion.spinal,
     libraryDependencies += "com.github.spinalhdl" % "spinalhdl-lib_2.11"  % CryptoVersion.spinal,
-    libraryDependencies += "com.github.spinalhdl" % "spinalhdl-sidechannel_2.11" % "0.1"
+    libraryDependencies += "com.github.spinalhdl" % "spinalhdl-sidechannel_2.11" % "0.2"
 
   )
 

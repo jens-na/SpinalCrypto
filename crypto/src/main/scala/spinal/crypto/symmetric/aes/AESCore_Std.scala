@@ -28,10 +28,11 @@ package spinal.crypto.symmetric.aes
 import spinal.core._
 import spinal.lib._
 import spinal.lib.fsm.{EntryPoint, State, StateMachine}
-
 import spinal.crypto.symmetric.{SymmetricCryptoBlockConfig, SymmetricCryptoBlockIO}
 import spinal.crypto.devtype._
 import spinal.crypto._
+import spinal.lib.sidechannel.CounterExtensions.HidingCounterDoubleBuffer
+//import spinal.lib.sidechannel.DummyOpsFsm._
 
 
 /**
@@ -41,6 +42,8 @@ import spinal.crypto._
   *
   */
 class AESCore_Std(keyWidth: BitCount, hidingEnabled: Boolean = false) extends Component {
+
+
 
   val gIO  = SymmetricCryptoBlockConfig(
     keyWidth   = keyWidth,
@@ -52,6 +55,13 @@ class AESCore_Std(keyWidth: BitCount, hidingEnabled: Boolean = false) extends Co
 
   val engine      = new AESEngine_Std(keyWidth, hidingEnabled)
   val keySchedule = new AESKeyScheduleCore_Std(keyWidth)
+
+  //val seeds = Vec(Bits(64 bits), 2)
+  //seeds(0) := B("1100001001011010110101010011110111001111011110000011101001100000")
+
+  //engine.internalIo.seed.payload := seeds(0)
+  //engine.internalIo.seed.valid := True
+
 
   engine.io.engine      <> io
   engine.io.keySchedule <> keySchedule.io
@@ -95,7 +105,8 @@ class AESCore_Std(keyWidth: BitCount, hidingEnabled: Boolean = false) extends Co
   *               Plaintext
   *
   */
-class AESEngine_Std(keyWidth: BitCount, hidingEnabled: Boolean) extends Component {
+class AESEngine_Std(keyWidth: BitCount, hidingEnabled: Boolean) extends Component { //Dummy2Component(16) {
+  //internalIo.seed.ready := True
 
   assert(List(128, 192, 256).contains(keyWidth.value), "AES support only 128/192/256 keys width")
 
@@ -131,6 +142,7 @@ class AESEngine_Std(keyWidth: BitCount, hidingEnabled: Boolean) extends Componen
 
   /* Output default value */
   val smDone           = False
+  //val smStart = False
   io.engine.cmd.ready := RegNext(smDone) init(False)
   io.engine.rsp.valid := io.engine.cmd.ready
   io.engine.rsp.block := dataState.reverse.asBits
@@ -138,7 +150,6 @@ class AESEngine_Std(keyWidth: BitCount, hidingEnabled: Boolean) extends Componen
   /* Sudivide the data and the key into 8 bits */
   val blockByte = io.engine.cmd.block.subdivideIn(8 bits).reverse
   val keyByte   = io.keySchedule.key_i.subdivideIn(8 bits).reverse
-
 
   /**
     * Main state machine
@@ -155,15 +166,20 @@ class AESEngine_Std(keyWidth: BitCount, hidingEnabled: Boolean) extends Componen
     val mixCol_cmd = Stream(NoData)  // Command for the mixColumn operation
     mixCol_cmd.valid := False
 
+
+    //endCond := smDone
+
     val sIdle: State = new State with EntryPoint{
       whenIsActive{
         when(io.engine.cmd.valid && !io.engine.cmd.ready && !keyValid){
           cntRound := io.engine.cmd.enc ? U(0) | U(nbrRound)
           keyValid := True
           keyMode  := AESKeyScheduleCmdMode_Std.INIT
+
         }
 
-        when(io.keySchedule.cmd.ready){
+//        when(io.keySchedule.cmd.ready && startCond){
+          when(io.keySchedule.cmd.ready) {
           keyValid := False
           goto(sKeyAdd)
         }
@@ -276,31 +292,37 @@ class AESEngine_Std(keyWidth: BitCount, hidingEnabled: Boolean) extends Componen
     * newState(i) = SBox(currentState(i))
     */
   val byteSubstitution = new Area {
+
     import spinal.lib.sidechannel.CounterExtensions._
+
 
     val seeds = Vec(Bits(64 bits), 2)
     seeds(0) := B("1100001001011010110101010011110111001111011110000011101001100000")
     seeds(1) := B("1000111001110001010101000000001001100101011010011100011111110010")
 
-    val cntByte = Counter(16) arbitraryOrderDoubleBuffer(hidingEnabled)
-    if(hidingEnabled) {
-      cntByte.asInstanceOf[HidingCounterDoubleBuffer].c1.Shuffle.seed := seeds(0)
-      cntByte.asInstanceOf[HidingCounterDoubleBuffer].c2.Shuffle.seed := seeds(1)
-    }
+    val cntByte = Counter(16) arbitraryOrderDoubleBuffer (hidingEnabled)
+    cntByte.asInstanceOf[HidingCounterDoubleBuffer].c1.Shuffle.seed := seeds(0)
+    cntByte.asInstanceOf[HidingCounterDoubleBuffer].c2.Shuffle.seed := seeds(1)
     sm.byteSub_cmd.ready := cntByte.willOverflowIfInc
-    when(sm.byteSub_cmd.valid) {
-      cntByte.increment()
 
-      when(cntByte.willIncrement) {
-        when(io.engine.cmd.enc){
-          dataState(cntByte) := sBoxMem(dataState(cntByte).asUInt)
-        }otherwise{
-          dataState(cntByte) := sBoxMemInv(dataState(cntByte).asUInt)
+//    when() {
+
+      when(sm.byteSub_cmd.valid) {
+        cntByte.increment()
+
+        when(cntByte.willIncrement) {
+          when(io.engine.cmd.enc) {
+            dataState(cntByte) := sBoxMem(dataState(cntByte).asUInt)
+          } otherwise {
+            dataState(cntByte) := sBoxMemInv(dataState(cntByte).asUInt)
+          }
+        }
+
+        when(cntByte.willOverflow) {
+          cntByte.clear()
         }
       }
-    }.otherwise{
-      cntByte.clear()
-    }
+//    }
   }
 
 
